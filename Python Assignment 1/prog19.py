@@ -20,11 +20,12 @@ prices1={"prod1": 2000, "prod2":5000, "prod3": 400}
 items1=prices.keys()
 items2=prices.values()
 fil=[]
-for stock,price in prices1:
+for stock,price in prices1.items():
 	if stock not in items1 and price not in items2:
-		fil.append(stock,price)
+		fil.append((stock,price))
 
 
 print("Stock that are only in present first dictionary")
 print(fil)
+
 
