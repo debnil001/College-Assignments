@@ -8,93 +8,74 @@
 int isPalindrome(char *str) {
     int len = strlen(str);
     int i, j;
-
+    
     for (i = 0, j = len - 1; i < j; i++, j--) {
         if (str[i] != str[j])
-            return 0;
+            return 0;  // Not a palindrome
     }
-
-    return 1;
+    
+    return 1;  // Palindrome
 }
 
 int main() {
     int pipefd[2];
+    char buffer[BUFFER_SIZE];
     pid_t pid;
-    char inputStr[BUFFER_SIZE];
 
-    // Create the pipe
     if (pipe(pipefd) == -1) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
 
-    // Fork the process
     pid = fork();
-
-    if (pid == -1) {
+    if (pid < 0) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
 
-    if (pid == 0) {
-        // Child process
-        close(pipefd[1]); // Close the write end of the pipe
-
-        while (1) {
-            char result[BUFFER_SIZE];
-            ssize_t numRead = read(pipefd[0], inputStr, BUFFER_SIZE);
-            if (numRead == -1) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }
-            inputStr[numRead - 1] = '\0'; // Remove the newline character
-
-            if (strcmp(inputStr, "quit") == 0)
-                break;
-
-            if (isPalindrome(inputStr))
-                strcpy(result, "YES");
-            else
-                strcpy(result, "NO");
-
-            if (write(pipefd[1], result, strlen(result)) == -1) {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        close(pipefd[0]); // Close the read end of the pipe
-        exit(EXIT_SUCCESS);
-    } else {
+    if (pid > 0) {
         // Parent process
-        close(pipefd[0]); // Close the read end of the pipe
+        close(pipefd[0]);  // Close the reading end of the pipe
 
         while (1) {
-            printf("Enter a string (or 'quit' to exit): ");
-            fgets(inputStr, BUFFER_SIZE, stdin);
+            printf("Enter a string: ");
+            fgets(buffer, BUFFER_SIZE, stdin);
+            buffer[strcspn(buffer, "\n")] = '\0';  // Remove newline character
 
-            if (write(pipefd[1], inputStr, strlen(inputStr)) == -1) {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
-
-            if (strcmp(inputStr, "quit\n") == 0)
+            if (strcmp(buffer, "quit") == 0) {
+                write(pipefd[1], buffer, BUFFER_SIZE);
                 break;
-
-            char result[BUFFER_SIZE];
-            ssize_t numRead = read(pipefd[0], result, BUFFER_SIZE);
-            if (numRead == -1) {
-                perror("read");
-                exit(EXIT_FAILURE);
             }
-            result[numRead] = '\0';
 
-            printf("Palindrome check result: %s\n", result);
+            write(pipefd[1], buffer, BUFFER_SIZE);
+
+            char response[BUFFER_SIZE];
+            read(pipefd[0], response, BUFFER_SIZE);
+
+            printf("Response from child: %s\n", response);
         }
 
-        close(pipefd[1]); // Close the write end of the pipe
-        wait(NULL); // Wait for the child process to terminate
-        exit(EXIT_SUCCESS);
+        close(pipefd[1]);  // Close the writing end of the pipe
+    } else {
+        // Child process
+        close(pipefd[1]);  // Close the writing end of the pipe
+
+        while (1) {
+            read(pipefd[0], buffer, BUFFER_SIZE);
+
+            if (strcmp(buffer, "quit") == 0)
+                break;
+
+            int isPalindromeResult = isPalindrome(buffer);
+            if (isPalindromeResult)
+                strcpy(buffer, "YES");
+            else
+                strcpy(buffer, "NO");
+
+            write(pipefd[1], buffer, BUFFER_SIZE);
+        }
+
+        close(pipefd[0]);  // Close the reading end of the pipe
     }
 
     return 0;
