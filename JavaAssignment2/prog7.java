@@ -10,14 +10,24 @@ public class prog7 {
         }
         System.out.println("Count of \'a\' is "+count);
         int countOfA=0;
-        String arr[]=inputString.split(" ");
-        for(String str:arr) {
-            System.out.println(str);
-            if(arr.equals("and")) countOfA++;
-
+        System.out.println("Enter delimeter::");
+        String del=new Scanner(System.in).nextLine();
+        String[]arr;
+        if(del.equals(" ")){
+            arr=inputString.split(" ");
         }
-        System.out.println("Count of \"and\" in the input string"+countOfA);
-        if(arr[0].equals("The")) System.out.println("Starts with \"the\"");
+        else{
+            arr=inputString.split("@");
+        }
+        String s="and";
+        for(String str:arr){
+            System.out.println(str);
+            if(str.compareTo(s)==0) 
+                countOfA++;
+        }
+        System.out.println("Count of \"and\" in the input string "+countOfA);
+        if(arr[0].equals("The")) 
+        System.out.println("Starts with \"the\"");
         
     }
 }
