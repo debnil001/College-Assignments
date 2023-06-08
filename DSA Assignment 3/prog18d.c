@@ -1,120 +1,187 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Structure for a node in the linked list
+// Node structure
 struct Node {
     int data;
     int priority;
     struct Node* next;
 };
 
-// Structure for Priority Queue
+// Priority Queue structure
 struct PriorityQueue {
-    struct Node* front;
-    struct Node* rear;
+    struct Node** queues; // Array of linked lists
+    int numPriorities;    // Number of priority levels
 };
 
-void initializeQueue(struct PriorityQueue* pq) {
-    pq->front = NULL;
-    pq->rear = NULL;
-}
-
-int isEmpty(struct PriorityQueue* pq) {
-    return pq->front == NULL;
-}
-
+// Function to create a new node
 struct Node* createNode(int data, int priority) {
     struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    if (newNode == NULL) {
+        printf("Memory allocation failed!\n");
+        exit(1);
+    }
     newNode->data = data;
     newNode->priority = priority;
     newNode->next = NULL;
     return newNode;
 }
 
-void enqueue(struct PriorityQueue* pq, int element, int priority) {
-    struct Node* newNode = createNode(element, priority);
-    
-    // If the priority queue is empty or the new node has higher priority than the front node
-    if (isEmpty(pq) || priority > pq->front->priority) {
-        newNode->next = pq->front;
-        pq->front = newNode;
-    } else {
-        struct Node* temp = pq->front;
-        
-        // Traverse the linked list to find the appropriate position to insert the new node
-        while (temp->next != NULL && temp->next->priority >= priority) {
-            temp = temp->next;
-        }
-        
-        newNode->next = temp->next;
-        temp->next = newNode;
+// Function to create a priority queue
+struct PriorityQueue* createPriorityQueue(int numPriorities) {
+    struct PriorityQueue* pq = (struct PriorityQueue*)malloc(sizeof(struct PriorityQueue));
+    if (pq == NULL) {
+        printf("Memory allocation failed!\n");
+        exit(1);
     }
-    
-    // If the new node is the only node or has higher priority than the rear node
-    if (isEmpty(pq) || priority > pq->rear->priority) {
-        pq->rear = newNode;
+    pq->queues = (struct Node**)malloc(numPriorities * sizeof(struct Node*));
+    if (pq->queues == NULL) {
+        printf("Memory allocation failed!\n");
+        exit(1);
     }
+    pq->numPriorities = numPriorities;
+    // Initialize each queue to NULL
+    for (int i = 0; i < numPriorities; i++) {
+        pq->queues[i] = NULL;
+    }
+    return pq;
 }
 
-int dequeue(struct PriorityQueue* pq) {
-    if (isEmpty(pq)) {
-        printf("Priority Queue is empty. Cannot dequeue element.\n");
-        return -1;
+// Function to check if the priority queue is empty
+int isEmpty(struct PriorityQueue* pq) {
+    for (int i = 0; i < pq->numPriorities; i++) {
+        if (pq->queues[i] != NULL)
+            return 0;
     }
-    
-    struct Node* temp = pq->front;
-    int element = temp->data;
-    pq->front = pq->front->next;
-    
-    if (pq->front == NULL) {
-        pq->rear = NULL;
-    }
-    
-    free(temp);
-    return element;
+    return 1;
 }
 
-int getHighestPriority(struct PriorityQueue* pq) {
-    if (isEmpty(pq)) {
-        printf("Priority Queue is empty.\n");
-        return -1;
-    }
-    
-    return pq->front->data;
-}
-
-void displayQueue(struct PriorityQueue* pq) {
-    if (isEmpty(pq)) {
-        printf("Priority Queue is empty.\n");
+// Function to enqueue an element with a given priority
+void enqueue(struct PriorityQueue* pq, int data, int priority) {
+    if (priority < 0 || priority >= pq->numPriorities) {
+        printf("Invalid priority level!\n");
         return;
     }
-    
-    struct Node* temp = pq->front;
-    
-    printf("Priority Queue: ");
-    while (temp != NULL) {
-        printf("%d ", temp->data);
-        temp = temp->next;
+    struct Node* newNode = createNode(data, priority);
+    if (pq->queues[priority] == NULL) {
+        pq->queues[priority] = newNode;
+    } else {
+        struct Node* current = pq->queues[priority];
+        struct Node* prev = NULL;
+        while (current != NULL && current->priority <= priority) {
+            prev = current;
+            current = current->next;
+        }
+        if (prev == NULL) {
+            newNode->next = pq->queues[priority];
+            pq->queues[priority] = newNode;
+        } else {
+            newNode->next = prev->next;
+            prev->next = newNode;
+        }
+    }
+}
+
+// Function to dequeue and return the highest priority element
+int dequeue(struct PriorityQueue* pq) {
+    if (isEmpty(pq)) {
+        printf("Priority Queue is empty!\n");
+        exit(1);
+    }
+    struct Node* highestPriorityQueue = NULL;
+    for (int i = 0; i < pq->numPriorities; i++) {
+        if (pq->queues[i] != NULL) {
+            highestPriorityQueue = pq->queues[i];
+            pq->queues[i] = pq->queues[i]->next;
+            break;
+        }
+    }
+    int data = highestPriorityQueue->data;
+    free(highestPriorityQueue);
+    return data;
+}
+
+// Function to print the priority queue
+void printPriorityQueue(struct PriorityQueue* pq) {
+    printf("Priority Queue:\n");
+    for (int i = 0; i < pq->numPriorities; i++) {
+        printf("Priority %d: ", i);
+        struct Node* current = pq->queues[i];
+        while (current != NULL) {
+            printf("%d ", current->data);
+            current = current->next;
+        }
+        printf("\n");
     }
     printf("\n");
 }
 
+// Function to free the memory occupied by the priority queue
+void freePriorityQueue(struct PriorityQueue* pq) {
+    for (int i = 0; i < pq->numPriorities; i++) {
+        struct Node* current = pq->queues[i];
+        while (current != NULL) {
+            struct Node* temp = current;
+            current = current->next;
+            free(temp);
+        }
+    }
+    free(pq->queues);
+    free(pq);
+}
+
 int main() {
-    struct PriorityQueue pq;
-    
-    initializeQueue(&pq);
-    
-    enqueue(&pq, 10, 3);
-    enqueue(&pq, 20, 2);
-    enqueue(&pq, 30, 1);
-    enqueue(&pq, 40, 4);
-    
-    displayQueue(&pq); 
-    int highestPriority = getHighestPriority(&pq);
-    printf("Highest Priority: %d\n", highestPriority);
-    int dequeuedElement = dequeue(&pq);
-    printf("Dequeued Element: %d\n", dequeuedElement); 
-    displayQueue(&pq); 
-    
+    int numPriorities;
+    printf("Enter the number of priority levels: ");
+    scanf("%d", &numPriorities);
+
+    struct PriorityQueue* pq = createPriorityQueue(numPriorities);
+
+    int choice;
+    do {
+        printf("Priority Queue Operations:\n");
+        printf("1. Enqueue\n");
+        printf("2. Dequeue\n");
+        printf("3. Print Priority Queue\n");
+        printf("4. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+            case 1: {
+                int data, priority;
+                printf("Enter the data to enqueue: ");
+                scanf("%d", &data);
+                printf("Enter the priority level (0-%d): ", numPriorities - 1);
+                scanf("%d", &priority);
+                enqueue(pq, data, priority);
+                break;
+            }
+            case 2: {
+                if (!isEmpty(pq)) {
+                    int data = dequeue(pq);
+                    printf("Dequeued element: %d\n", data);
+                } else {
+                    printf("Priority Queue is empty!\n");
+                }
+                break;
+            }
+            case 3:
+                printPriorityQueue(pq);
+                break;
+            case 4:
+                printf("Exiting...\n");
+                break;
+            default:
+                printf("Invalid choice! Please try again.\n");
+                break;
+        }
+
+        printf("\n");
+    } while (choice != 4);
+
+    // Free the memory occupied by the priority queue
+    freePriorityQueue(pq);
+
     return 0;
 }
