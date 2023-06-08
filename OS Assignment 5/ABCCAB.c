@@ -1,67 +1,88 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
+#include <pthread.h>
 #include <semaphore.h>
-#include<pthread.h>
-sem_t semaphore1, semaphore2, semaphore3;
-int turn=0;
-void* p1(void* arg) {
-    int i;
-    for (i = 0; i < 10; i++) {
-        sem_wait(&semaphore1);
-        turn=0;
-        printf("\nA");
-        sem_post(&semaphore2);
-        sleep(1);
-    }
+
+// Define a Counter Variable.
+int c = 0; 
+
+sem_t s1, s2, s3;
+int turn = 1;
+//A B C C A B 
+//A B C C A B..
+
+void* A() {
+	while(1) {
+		sem_wait(&s1);
+		//sleep(1);
+		printf("A");
+		sem_post(&s2);
+	}
 }
 
-void* p2(void* arg) {
-    int i;
-    for (i = 0; i < 10; i++) {
-        sem_wait(&semaphore2);
-        printf("B");
-        if(turn==0){
-            turn++;
-            sem_post(&semaphore3);
-        }
-        else
-            sem_post(&semaphore1);
-    }
+void* B() {
+	while(1){
+		if(c==10)
+		{
+			exit(0);
+		}
+		sem_wait(&s2);
+		//sleep(1);
+		printf("B");
+		if(turn == 2) {
+			turn = 1;
+			c++;
+			sem_post(&s1);
+			printf("\n");
+		}
+		else {
+			sem_post(&s3);
+			sem_wait(&s2);
+			sem_post(&s3);
+			sem_wait(&s2);
+			turn = 2;
+			sem_post(&s1);
+		}
+	}
 }
 
-void* p3(void* arg) {
-    int i;
-    for (i = 0; i < 10; i++) {
-        sem_wait(&semaphore3);
-        printf("C");
-        if(turn==1){
-            turn++;
-            sem_post(&semaphore3);
-        }
-        else{
-            sem_post(&semaphore1);
-        }
-    }
+void* C() {
+	while(1){
+		sem_wait(&s3);
+		//sleep(1);
+		printf("C");
+		sem_post(&s2);
+		
+	}
 }
-int main() {
-    sem_init(&semaphore1, 0, 1);
-    sem_init(&semaphore2, 0, 0);
-    sem_init(&semaphore3, 0, 0);
 
-    pthread_t tid1, tid2, tid3;
+int main()
+{
+	sem_init(&s1, 1, 1);
+	sem_init(&s2, 1, 0);
+	sem_init(&s3, 1, 0);
+	
+	pthread_t t1, t2, t3;
+	int i1, i2, i3;
+	
+	
+	i1 = pthread_create(&t1, NULL, A, NULL);
+	i2 = pthread_create(&t2, NULL, B, NULL);
+	i3 = pthread_create(&t3, NULL, C, NULL);
 
-    pthread_create(&tid1, NULL, p1, NULL);
-    pthread_create(&tid2, NULL, p2, NULL);
-    pthread_create(&tid3, NULL, p3, NULL);
+	
+	pthread_join(t1, NULL);
+	pthread_join(t2, NULL);
+	pthread_join(t3, NULL);
 
-    pthread_join(tid1, NULL);
-    pthread_join(tid2, NULL);
-    pthread_join(tid3, NULL);
 
-    sem_destroy(&semaphore1);
-    sem_destroy(&semaphore2);
-    sem_destroy(&semaphore3);
-
-    return 0;
 }
+
+
+
+
+
+
+
