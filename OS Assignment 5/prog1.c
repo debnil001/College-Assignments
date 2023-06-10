@@ -1,130 +1,76 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <time.h>
+#include<stdio.h>
+#include<sys/types.h>
+#include<sys/ipc.h>
+#include<sys/shm.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<sys/wait.h>
+#include<time.h>
 
-#define SHARED_MEMORY_KEY 12345
-#define NUM_VALUES 100
-
-typedef struct {
-    int max;
-    int min;
-    double avg;
-} Result;
-
-void generateRandomNumbers(int* numbers) {
-    srand(time(NULL));
-    for (int i = 0; i < NUM_VALUES; i++) {
-        numbers[i] = rand() % 1000;
-    }
-}
-
-int main() {
-    // Create shared memory segment
-    int shmid = shmget(SHARED_MEMORY_KEY, sizeof(int) * NUM_VALUES, IPC_CREAT | 0666);
-    if (shmid < 0) {
-        perror("shmget");
-        exit(1);
-    }
-
-    // Attach shared memory segment
-    int* sharedMemory = (int*)shmat(shmid, NULL, 0);
-    if (sharedMemory == (int*)-1) {
-        perror("shmat");
-        exit(1);
-    }
-
-    pid_t childPid;
-    Result* result;
-
-    // Create child process
-    childPid = fork();
-
-    if (childPid < 0) {
-        perror("fork");
-        exit(1);
-    } else if (childPid == 0) {
-        // Child process
-
-        // Wait for the parent to write numbers into shared memory
-        while (sharedMemory[0] == 0) {
-            usleep(1000);
-        }
-
-        // Compute maximum, minimum, and average
-        int max = sharedMemory[0];
-        int min = sharedMemory[0];
-        double sum = 0;
-
-        for (int i = 0; i < NUM_VALUES; i++) {
-            int value = sharedMemory[i];
-            if (value > max) {
-                max = value;
-            }
-            if (value < min) {
-                min = value;
-            }
-            sum += value;
-        }
-
-        // Compute the average
-        double avg = sum / NUM_VALUES;
-
-        // Write the result into shared memory
-        result = (Result*)(sharedMemory + NUM_VALUES);
-        result->max = max;
-        result->min = min;
-        result->avg = avg;
-
-        // Detach shared memory
-        if (shmdt(sharedMemory) == -1) {
-            perror("shmdt");
-            exit(1);
-        }
-
+int main()
+{
+    int shmid;
+    int key=220;
+    int status,max,min,sum;
+    float avg;
+    char *buffer;
+    if((shmid=shmget(key, 420, IPC_CREAT | 0666))==-1)
+    {
+        printf("\nCannot create shared memory segment");
         exit(0);
-    } else {
-        // Parent process
-
-        // Generate random numbers
-        int numbers[NUM_VALUES];
-        generateRandomNumbers(numbers);
-
-        // Write numbers into shared memory
-        for (int i = 0; i < NUM_VALUES; i++) {
-            sharedMemory[i] = numbers[i];
-        }
-
-        // Wait for the child to finish computation
-        wait(NULL);
-
-        // Read the result from shared memory
-        result = (Result*)(sharedMemory + NUM_VALUES);
-        int max = result->max;
-        int min = result->min;
-        double avg = result->avg;
-
-        // Display the result
-        printf("Maximum: %d\n", max);
-        printf("Minimum: %d\n", min);
-        printf("Average: %.2f\n", avg);
-
-        // Detach shared memory
-        if (shmdt(sharedMemory) == -1) {
-            perror("shmdt");
-            exit(1);
-        }
-
-        // Remove shared memory segment
-        if (shmctl(shmid, IPC_RMID, 0) == -1) {
-            perror("shmctl");
-            exit(1);
-        }
     }
-
+    buffer = shmat(shmid,NULL,0);
+    int turn=0;
+    sprintf(buffer,"%d",turn);
+    if(fork()!=0)
+    {
+        while(turn!=0)
+            sscanf(buffer, "%d", &turn);
+        printf("\nGenerate 100 random numbers:\n");
+        srand(time(0));
+        for(int i=1;i<=100;i++)
+        {
+            int temp=rand()%1000;
+            printf("%d ",temp);
+            sprintf(buffer+(4*i),"%d",temp);
+        }
+        fflush(stdout);
+        turn=1;
+        sprintf(buffer,"%d",turn);
+        while(turn!=0)
+            sscanf(buffer,"%d",&turn);
+        sscanf(buffer+4*(101),"%d",&max);
+        sscanf(buffer+4*(102),"%d",&min);
+        sscanf(buffer+4*(103),"%f",&avg);
+        sleep(1);
+        printf("\nMax = %d\nMin = %d\nAverage = %.2f\n",max,min,avg);
+        printf("Parent terminates\n");
+    }
+    else
+    {
+        while(turn!=1)
+            sscanf(buffer,"%d",&turn);
+        int val;
+        printf("\nChild Begins\n");
+        sscanf(buffer+4,"%d",&val);
+        max=min=sum=val;
+        for(int i=2;i<=100;i++)
+        {
+            sscanf(buffer+(4*i),"%d",&val);
+            if(val>max)
+                max=val;
+            if(val<min)
+                min=val;
+            sum+=val;
+        }
+        avg=(float)sum/100.0;
+        sprintf(buffer+(4*101),"%d",max);
+        sprintf(buffer+(4*102),"%d",min);
+        sprintf(buffer+(4*103),"%.2f",avg);
+        turn=0;
+        sprintf(buffer,"%d",turn);
+        printf("\nChild Terminates\n");
+    }
+    shmdt(buffer);
     return 0;
 }
