@@ -1,13 +1,16 @@
+ls
 count=0
-for file in *.sh
-do
-	count=$(( count+1 ))
+flag=0
+for file in *.sh;do
+	if [ ${file%.xyz} ]
+	then
+		flag=1
+		count=$(($count+1))
+	fi
 done
-echo "Total shell scripts in this directory is:: "$count
-exp=`ls -l | awk '{print $5}'`
-total=0
-for i in $exp
-do 
-	total=$(( total + i ))
-done
-echo $total
+if [ $flag -eq 0 ]
+then
+	echo "No .sh file is there in the directory"
+else
+	echo "There are $count .sh files in the directory"
+fi
